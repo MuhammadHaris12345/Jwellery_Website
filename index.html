@@ -1,0 +1,152 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jewellery Shop Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#faf6ee;--card:#fff;--tx:#2b2220;--gold:#b8892b;--deep:#0f4d3a;--mar:#7a1f2b;--bd:#e6dcc6}
+body.dark{--bg:#14110f;--card:#211c19;--tx:#f2ead8;--bd:#3a322c}
+*{box-sizing:border-box}body{margin:0;font:14px Poppins,sans-serif;background:var(--bg);color:var(--tx)}
+h1,h2,h3{font-family:'Playfair Display',serif;color:var(--gold);margin:.3em 0}
+nav{position:fixed;left:0;top:0;bottom:0;width:170px;background:var(--deep);padding:10px;overflow:auto}
+nav b{color:#e8c46a;font-family:'Playfair Display';display:block;margin:8px 4px}
+nav a{display:block;color:#fff;padding:9px;border-radius:8px;cursor:pointer}nav a.on,nav a:hover{background:var(--gold)}
+main{margin-left:170px;padding:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:8px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.kpi b{display:block;font-size:19px;color:var(--deep)}body.dark .kpi b{color:#e8c46a}
+button,input,select,textarea{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);max-width:100%}
+button{background:var(--gold);color:#fff;border:0;cursor:pointer;margin:2px}button.s{background:var(--deep)}button.r{background:var(--mar)}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid var(--bd);text-align:left}
+.wrap{overflow-x:auto}.tag{background:var(--bd);border-radius:6px;padding:1px 6px;font-size:12px}
+#toast{position:fixed;right:10px;top:10px;background:var(--deep);color:#fff;padding:10px 14px;border-radius:8px;display:none;z-index:99}
+#modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:50}
+#modal>div{background:var(--card);padding:16px;border-radius:12px;width:min(420px,94vw);max-height:90vh;overflow:auto}
+#modal label{display:block;margin:6px 0 2px;font-size:12px}#modal input,#modal select,#modal textarea{width:100%}
+pre{white-space:pre-wrap;background:var(--bg);padding:8px;border-radius:8px}
+@media(max-width:700px){nav{top:auto;width:100%;height:auto;display:flex;overflow-x:auto;padding:4px}nav b{display:none}nav a{white-space:nowrap;padding:10px 8px}main{margin:0 0 60px;padding:8px}}
+@media print{nav,button,#toast{display:none}main{margin:0}}
+</style></head><body>
+<div id="toast"></div><div id="modal"><div id="mbox"></div></div>
+<nav id="nav"></nav><main id="main"></main>
+<script>
+(()=>{'use strict';
+const TOLA=11.664,$=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>Math.round(+n||0).toLocaleString('en-US'),today=()=>new Date().toISOString().slice(0,10);
+const dd=d=>new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'-');
+/* ---- Storage ---- */
+const S={get(k,d){try{const v=localStorage.getItem('jwl_'+k);return v?JSON.parse(v):d}catch(e){return d}},
+set(k,v){try{localStorage.setItem('jwl_'+k,JSON.stringify(v));return true}catch(e){toast('Storage full! Backup export karein aur purani photos hataein.');return false}}};
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000)};
+let cfg=S.get('settings',null);
+const nid=(p,arr)=>p+'-'+String(arr.length+1).padStart(4,'0');
+/* ---- Language ---- */
+const L={en:{dash:'Dashboard',rates:'Gold Rate',stock:'Inventory',cust:'Customers',pos:'Billing',orders:'Orders',mkt:'Marketing',set:'Settings'},
+ru:{dash:'Dashboard',rates:'Sone ka Rate',stock:'Stock / Zewar',cust:'Customers',pos:'Bill / Sale',orders:'Orders',mkt:'Marketing Kit',set:'Settings'},
+ur:{dash:'ڈیش بورڈ',rates:'سونے کا ریٹ',stock:'اسٹاک',cust:'گاہک',pos:'بل',orders:'آرڈرز',mkt:'مارکیٹنگ',set:'سیٹنگز'}};
+const t=k=>(L[cfg.lang]||L.en)[k];
+/* ---- Demo data ---- */
+function seed(){
+const names=['Ayesha Khan','Fatima Malik','Hina Siddiqui','Sana Qureshi','Bilal Ahmed','Usman Sheikh','Zainab Raza','Hamza Chaudhry','Maryam Baig','Imran Butt'],cities=['Karachi','Lahore','Islamabad','Faisalabad','Multan','Peshawar','Hyderabad'];
+S.set('customers',names.map((n,i)=>({id:'C-'+String(i+1).padStart(4,'0'),name:n,phone:'03'+(10+i)+'-'+(1234500+i*111),city:cities[i%7],tag:['VIP','Regular','Bridal'][i%3],balance:i%3==0?(i+1)*15000:0})));
+S.set('karigars',['Ustad Rafiq','Usman Sunar','Ghulam Nabi','Sajid Karigar'].map((n,i)=>({id:'K-'+(i+1),name:n,gold:0})));
+const items=[['Bridal Set','Set',22,48.5,6],['Rani Haar','Haar',22,62,8],['Jhumka','Jhumka',21,9.2,5],['Kangan Pair','Kangan',22,35,6],['Anguthi','Anguthi',21,6.5,5],['Chain','Chain',18,14,4],['Choorian (4)','Choorian',22,40,6],['Locket','Locket',21,5.8,5],['Nath','Nath',22,4.2,6],['Bali','Bali',18,3.6,4],['Payal Pair','Payal',0,70,3],['Tika','Tika',21,8.1,5]];
+const inv=items.map((x,i)=>({code:'AN-'+String(i+1).padStart(4,'0'),name:x[0],cat:x[1],metal:x[2]?'Gold':'Silver',karat:x[2]||0,net:x[3],wastagePct:x[4],makingType:'tola',making:x[2]?9000:1500,stone:i%4==0?25000:0,cost:Math.round(x[3]/TOLA*(x[2]?300000:4000)*.97),qty:1+i%3,status:'In Stock',loc:'Showcase'}));
+S.set('inventory',inv);let r24=312000;const rates=[];
+for(let d=30;d>=0;d--){r24+=Math.round((Math.random()-.45)*3000);const dt=new Date(Date.now()-d*864e5);rates.push({t:dt.toISOString(),r24,silver:4200+Math.round(Math.random()*100)})}
+S.set('rates',rates);S.set('sales',[]);
+S.set('orders',[{id:'O-0001',cust:'Ayesha Khan',desc:'Bridal set, 22K, temple design',est:50,advance:100000,due:today(),status:'In Making',lock:true}]);
+S.set('marketing',{streak:0,done:[]});}
+/* ---- Calc ---- */
+const lastRate=()=>{const r=S.get('rates',[]);return r[r.length-1]||{r24:0,silver:0}};
+const prevRate=()=>{const r=S.get('rates',[]);return r[r.length-2]||lastRate()};
+function price(it,rate=lastRate()){
+const base=it.metal=='Gold'?it.net/TOLA*rate.r24*it.karat/24:it.net*(rate.silver/TOLA);
+const was=base*(it.wastagePct||0)/100,mk=it.makingType=='fixed'?it.making:it.makingType=='gram'?it.making*it.net:it.making*it.net/TOLA;
+return{base,was,mk,stone:+it.stone||0,total:Math.round(base+was+mk+(+it.stone||0))}}
+/* ---- Modal form builder ---- */
+function form(title,fields,cb){
+$('#mbox').innerHTML='<h3>'+title+'</h3>'+fields.map(f=>'<label>'+f.l+'</label>'+(f.o?'<select name="'+f.n+'">'+f.o.map(o=>'<option>'+esc(o)+'</option>').join('')+'</select>':'<input name="'+f.n+'" type="'+(f.t||'text')+'" value="'+esc(f.v??'')+'">')).join('')+'<p><button id="ok">Save</button><button class="r" id="no">Cancel</button></p>';
+$('#modal').style.display='flex';$('#no').onclick=()=>$('#modal').style.display='none';
+$('#ok').onclick=()=>{const o={};for(const f of fields){const v=$('#mbox [name='+f.n+']').value.trim();if(f.req&&!v)return toast(f.l+' zaroori hai');o[f.n]=f.t=='number'?+v||0:v}$('#modal').style.display='none';cb(o)}}
+const copyBtn=txt=>'<button class="s" data-copy="'+esc(txt).replace(/\n/g,'&#10;')+'">Copy</button>';
+/* ---- Views ---- */
+const V={};let chart;
+V.dash=()=>{const inv=S.get('inventory',[]),sales=S.get('sales',[]),ord=S.get('orders',[]),c=S.get('customers',[]),lr=lastRate(),pr=prevRate();
+const tdy=sales.filter(s=>s.date==today()).reduce((a,s)=>a+s.total,0),stockVal=inv.reduce((a,i)=>a+price(i).total*i.qty,0),ud=c.reduce((a,x)=>a+(x.balance||0),0);
+const month=today().slice(0,7),profit=sales.filter(s=>s.date.startsWith(month)).reduce((a,s)=>a+s.profit,0);
+const stale=new Date(lr.t).toISOString().slice(0,10)!=today();
+return`${stale?'<div class="card" style="border-color:var(--mar)">⚠ Aaj ka rate update nahi hua. <button data-go="rates">Update Rate</button></div>':''}
+<h2>${t('dash')}</h2><div class="card"><b>24K:</b> Rs. ${fmt(lr.r24)}/tola ${lr.r24>=pr.r24?'▲':'▼'} ${fmt(Math.abs(lr.r24-pr.r24))} &nbsp;|&nbsp; <b>22K:</b> ${fmt(lr.r24*22/24)} &nbsp;<b>21K:</b> ${fmt(lr.r24*21/24)} &nbsp;<b>18K:</b> ${fmt(lr.r24*18/24)} &nbsp;|&nbsp; <b>Silver:</b> ${fmt(lr.silver)}/tola<br><small>Updated: ${dd(lr.t)}</small></div>
+<div class="grid">${[['Aaj ki sale','Rs. '+fmt(tdy)],['Pending orders',ord.filter(o=>!['Delivered','Cancelled','Ready'].includes(o.status)).length],['Ready orders',ord.filter(o=>o.status=='Ready').length],['Gold stock (g)',inv.filter(i=>i.metal=='Gold').reduce((a,i)=>a+i.net*i.qty,0).toFixed(1)],['Stock value','Rs. '+fmt(stockVal)],['Udhaar','Rs. '+fmt(ud)],...(cfg.role=='Owner'?[['Is mahine ka profit','Rs. '+fmt(profit)]]:[])].map(k=>'<div class="card kpi"><small>'+k[0]+'</small><b>'+k[1]+'</b></div>').join('')}</div>
+<div class="card"><canvas id="ch" height="120"></canvas></div>
+<p><button data-go="pos">New Sale</button><button data-go="orders">New Order</button><button data-go="stock">Add Item</button><button data-go="rates">Update Rate</button><button class="s" data-go="mkt">Aaj ka Marketing Kit</button></p>`};
+V.dash.after=()=>{const r=S.get('rates',[]).slice(-30);chart&&chart.destroy();chart=new Chart($('#ch'),{type:'line',data:{labels:r.map(x=>dd(x.t).slice(0,6)),datasets:[{label:'24K per tola',data:r.map(x=>x.r24),borderColor:'#b8892b',tension:.3}]}})};
+V.rates=()=>{const r=S.get('rates',[]),lr=lastRate();
+return`<h2>${t('rates')}</h2><div class="card"><input id="r24" type="number" placeholder="24K per tola" value="${lr.r24}"> <input id="rs" type="number" placeholder="Silver per tola" value="${lr.silver}"> <button data-act="saveRate">Save Rate</button><button class="s" data-act="fetchRate">Fetch Latest Rate</button><button class="s" data-act="rateCard">Rate Card PNG</button><button class="s" data-act="aiRate">AI Summary</button>
+<p>22K: ${fmt(lr.r24*22/24)} | 21K: ${fmt(lr.r24*21/24)} | 18K: ${fmt(lr.r24*18/24)} | per gram 24K: ${fmt(lr.r24/TOLA)}</p>
+<p><b>Converter:</b> <input id="cv" type="number" placeholder="Tola" style="width:90px"> <span id="cvo"></span></p></div><div id="aiout"></div><canvas id="rc" style="display:none"></canvas>
+<div class="card wrap"><table><tr><th>Date</th><th>24K</th><th>22K</th><th>Silver</th></tr>${r.slice().reverse().slice(0,15).map(x=>'<tr><td>'+dd(x.t)+'</td><td>'+fmt(x.r24)+'</td><td>'+fmt(x.r24*22/24)+'</td><td>'+fmt(x.silver)+'</td></tr>').join('')}</table></div>`};
+V.stock=()=>{const inv=S.get('inventory',[]);return`<h2>${t('stock')}</h2><input id="q" placeholder="Search code/name/category..." oninput="window._f()"><button data-act="addItem">+ Add Item</button><div id="list" class="card wrap"></div>`};
+V.stock.after=()=>{window._f=()=>{const q=$('#q').value.toLowerCase(),inv=S.get('inventory',[]).filter(i=>(i.code+i.name+i.cat).toLowerCase().includes(q));
+$('#list').innerHTML='<table><tr><th>Code</th><th>Item</th><th>Karat</th><th>Net g</th><th>Price</th><th>Qty</th><th></th></tr>'+inv.map(i=>'<tr><td>'+i.code+'</td><td>'+esc(i.name)+' <span class="tag">'+i.cat+'</span></td><td>'+(i.metal=='Gold'?i.karat+'K':'Silver')+'</td><td>'+i.net+'</td><td>Rs. '+fmt(price(i).total)+'</td><td>'+i.qty+'</td><td><button class="r" data-act="delItem" data-id="'+i.code+'">x</button></td></tr>').join('')+'</table>'||'<p>Koi item nahi. Add Item dabayein.</p>'};window._f()};
+V.cust=()=>{const c=S.get('customers',[]);return`<h2>${t('cust')}</h2><button data-act="addCust">+ Add Customer</button><div class="card wrap"><table><tr><th>Name</th><th>Phone</th><th>City</th><th>Tag</th><th>Balance</th><th></th></tr>${c.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+x.phone+'</td><td>'+x.city+'</td><td><span class="tag">'+x.tag+'</span></td><td>'+fmt(x.balance)+'</td><td><a href="https://wa.me/92'+x.phone.replace(/\D/g,'').slice(1)+'" target="_blank"><button class="s">WhatsApp</button></a></td></tr>').join('')}</table></div>`};
+V.pos=()=>{const inv=S.get('inventory',[]).filter(i=>i.qty>0),c=S.get('customers',[]);
+return`<h2>${t('pos')}</h2><div class="card"><select id="pc">${c.map(x=>'<option>'+esc(x.name)+'</option>').join('')}</select> <select id="pm"><option>Cash</option><option>Bank Transfer</option><option>JazzCash</option><option>Easypaisa</option><option>Cheque</option></select>
+<div class="wrap"><table>${inv.map(i=>'<tr><td><input type="checkbox" class="pi" value="'+i.code+'"></td><td>'+i.code+' '+esc(i.name)+'</td><td>Rs. '+fmt(price(i).total)+'</td></tr>').join('')}</table></div>
+<input id="pd" type="number" placeholder="Discount Rs."> <input id="px" type="number" placeholder="Purana sona deduction Rs."> <input id="pp" type="number" placeholder="Paid Rs. (khali = full)"> <button data-act="sale">Create Invoice</button></div>`};
+V.orders=()=>{const o=S.get('orders',[]),st=['Received','Design Approved','Given to Karigar','In Making','Quality Check','Ready','Delivered','Cancelled'];
+return`<h2>${t('orders')}</h2><button data-act="addOrder">+ New Order</button><div class="card wrap"><table><tr><th>#</th><th>Customer</th><th>Design</th><th>Due</th><th>Advance</th><th>Status</th><th></th></tr>${o.map(x=>'<tr><td>'+x.id+'</td><td>'+esc(x.cust)+'</td><td>'+esc(x.desc)+(x.lock?' 🔒':'')+'</td><td'+(x.due<today()&&!['Delivered','Cancelled'].includes(x.status)?' style="color:#c00"':'')+'>'+dd(x.due)+'</td><td>'+fmt(x.advance)+'</td><td><select data-act="ost" data-id="'+x.id+'">'+st.map(s=>'<option'+(s==x.status?' selected':'')+'>'+s+'</option>').join('')+'</select></td><td><button class="s" data-act="oWA" data-id="'+x.id+'">WhatsApp</button></td></tr>').join('')}</table></div>`};
+/* ---- Marketing engine ---- */
+const CAP=['✨ {n} — {k} ka khubsurat zewar, shaadi ki raunaq barhaye! Aaj hi visit karein {s}. 💍','👑 Bridal look incomplete hai bina {n} ke! {k}, {w}g. Order karein WhatsApp par.','💛 Apni khushi ko sajayein {n} se. {k} purity guarantee. {s}','🌙 Chand Raat special: {n} ({k}) — aaj ka rate Rs. {r}/tola. Jaldi aayein!','Classic design, modern elegance: {n}. {k}, {w}g. DM for price. ✨','🎁 Apnon ko dein sona: {n}. Gift-ready packing available. {s}','New arrival 🔥 {n} — limited stock! {k} | {w}g'];
+const TAGS='#GoldJewellery #PakistaniBridalJewellery #KarachiJewellers #BridalSet #GoldSet #PakistaniWedding #ShaadiSeason #22KGold #JewelleryLovers #Zewar #Sona #GoldRate #LahoreJewellers #DesiBride #JhumkaLove #RaniHaar #WeddingJewellery #JewelleryDesign #Jewellery #EidCollection'.split(' ');
+function kit(it,ai){const r=lastRate(),day=Math.floor(Date.now()/864e5),p=price(it).total;
+const cap=CAP[(day+it.code.length+it.code.charCodeAt(it.code.length-1))%CAP.length].replace('{n}',it.name).replace('{k}',it.metal=='Gold'?it.karat+'K':'Silver').replace('{w}',it.net).replace('{r}',fmt(r.r24)).replace('{s}',cfg.shop);
+return[['Instagram/Facebook caption',cap+'\nPrice: Rs. '+fmt(p)+'\n\n'+TAGS.join(' ')],['Reels script (15-30s)','Hook: "Yeh dekhein, '+it.name+' sirf aap ke liye!"\nShots: close-up, rotate on velvet, model wearing, price tag\nVoiceover: "'+cfg.shop+' ka naya '+it.name+', '+it.karat+'K, Rs. '+fmt(p)+'. Order ke liye WhatsApp karein."'],['WhatsApp broadcast/status','Assalam o Alaikum! '+cfg.shop+' ka naya '+it.name+' ('+it.karat+'K, '+it.net+'g) Rs. '+fmt(p)+'. Aaj ka 24K rate Rs. '+fmt(r.r24)+'/tola. Order: '+cfg.phone]]}
+V.mkt=()=>{const inv=S.get('inventory',[]),day=Math.floor(Date.now()/864e5),pick=[0,1,2].map(i=>inv[(day+i*3)%inv.length]),m=S.get('marketing',{streak:0,done:[]});
+return`<h2>${t('mkt')}</h2><p>Streak: <b>${m.streak}</b> din <button data-act="posted">Aaj post kar diya ✔</button> <button class="s" data-act="aiKit">AI se likhwayein</button></p><div id="aiout"></div>
+${pick.map(it=>'<div class="card"><h3>'+esc(it.name)+' <small>'+it.code+'</small></h3><button data-act="poster" data-id="'+it.code+'">Poster PNG</button><canvas id="pc'+it.code+'" style="display:none"></canvas>'+kit(it).map(k=>'<b>'+k[0]+'</b> '+copyBtn(k[1])+'<pre>'+esc(k[1])+'</pre>').join('')+'</div>').join('')}
+<div class="card"><b>Aaj ka rate post</b><pre>${esc(rateText())}</pre>${copyBtn(rateText())}</div>`};
+const rateText=()=>{const r=lastRate();return'💛 '+cfg.shop+' — Aaj ka Rate ('+dd(new Date())+')\n24K: Rs. '+fmt(r.r24)+'/tola\n22K: Rs. '+fmt(r.r24*22/24)+'\n21K: Rs. '+fmt(r.r24*21/24)+'\n18K: Rs. '+fmt(r.r24*18/24)+'\nSilver: Rs. '+fmt(r.silver)+'/tola\n📞 '+cfg.phone};
+V.set=()=>`<h2>${t('set')}</h2><div class="card"><p><input id="sn" value="${esc(cfg.shop)}"> <input id="sp" value="${esc(cfg.phone)}"> <select id="sl">${[['en','English'],['ru','Roman Urdu'],['ur','Urdu']].map(l=>'<option value="'+l[0]+'"'+(cfg.lang==l[0]?' selected':'')+'>'+l[1]+'</option>').join('')}</select><select id="sro"><option>Owner</option><option${cfg.role=='Staff'?' selected':''}>Staff</option></select></p>
+<p><input id="sk" type="password" placeholder="Anthropic API key (local only)" value="${esc(cfg.key||'')}"><br><small>Warning: key browser mein save hoti hai.</small></p><p><input id="su" placeholder="Gold-rate API URL (optional)" value="${esc(cfg.url||'')}"> <input id="pin" type="password" placeholder="Naya PIN (optional)"></p>
+<button data-act="saveSet">Save</button><button class="s" data-act="theme">Dark/Light</button></div>
+<div class="card"><button data-act="export">Backup (JSON)</button><label class="tag">Restore <input type="file" id="imp" accept=".json" hidden></label><button class="r" data-act="reset">Reset + Demo Data</button><p>Storage used: ${(JSON.stringify(localStorage).length/1024).toFixed(0)} KB / ~5000 KB</p></div>`;
+/* ---- Actions ---- */
+async function ai(prompt){if(!cfg.key)throw new Error('API key Settings mein dalein');const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':cfg.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,messages:[{role:'user',content:prompt}]})});const d=await r.json();if(!r.ok)throw new Error(d.error?.message||'API error');return d.content.map(c=>c.text||'').join('')}
+const A={
+saveRate(){const r=S.get('rates',[]);r.push({t:new Date().toISOString(),r24:+$('#r24').value,silver:+$('#rs').value});if(!+$('#r24').value)return toast('Rate dalein');S.set('rates',r);toast('Rate save ho gaya');go('rates')},
+async fetchRate(){if(!cfg.url)return toast('Settings mein API URL dalein, ya manual rate likhein.');try{const d=await(await fetch(cfg.url)).json();const v=d.r24||d.price_per_tola||d.rate;if(!v)throw 0;$('#r24').value=Math.round(v);toast('Rate mil gaya, Save dabayein')}catch(e){toast('Fetch fail (CORS/URL). Manual entry karein.')}},
+async aiRate(){const r=S.get('rates',[]).slice(-7);$('#aiout').innerHTML='<div class="card">Loading...</div>';let txt;try{txt=await ai('Roman Urdu mein 3-4 line gold rate summary aur ek WhatsApp message likho. Rates (24K/tola): '+r.map(x=>dd(x.t)+' '+x.r24).join(', '))}catch(e){txt=rateText()+'\n\n(AI nahi chala: '+e.message+')'}$('#aiout').innerHTML='<div class="card"><pre>'+esc(txt)+'</pre>'+copyBtn(txt)+'</div>'},
+rateCard(){const c=$('#rc'),x=c.getContext('2d'),r=lastRate();c.width=c.height=1080;const g=x.createLinearGradient(0,0,1080,1080);g.addColorStop(0,'#0f4d3a');g.addColorStop(1,'#07241b');x.fillStyle=g;x.fillRect(0,0,1080,1080);x.strokeStyle='#e8c46a';x.lineWidth=8;x.strokeRect(30,30,1020,1020);x.fillStyle='#e8c46a';x.textAlign='center';x.font='bold 70px "Playfair Display",serif';x.fillText(cfg.shop,540,170);x.font='36px Poppins,sans-serif';x.fillText('Aaj ka Gold Rate - '+dd(new Date()),540,240);x.fillStyle='#fff';x.font='bold 54px Poppins,sans-serif';[['24K',r.r24],['22K',r.r24*22/24],['21K',r.r24*21/24],['18K',r.r24*18/24],['Silver',r.silver]].forEach((a,i)=>x.fillText(a[0]+':  Rs. '+fmt(a[1])+' / tola',540,380+i*115));x.fillStyle='#e8c46a';x.font='38px Poppins';x.fillText(cfg.phone,540,1000);const a=document.createElement('a');a.download='rate-card.png';a.href=c.toDataURL();a.click();window.open('https://wa.me/?text='+encodeURIComponent(rateText()))},
+addItem(){const inv=S.get('inventory',[]);form('Add Item',[{n:'name',l:'Name (e.g. Jhumka)',req:1},{n:'cat',l:'Category',o:['Set','Bridal Set','Kangan','Choorian','Jhumka','Locket','Tika','Nath','Anguthi','Chain','Haar','Bali','Payal','Rani Haar']},{n:'metal',l:'Metal',o:['Gold','Silver']},{n:'karat',l:'Karat',o:['22','21','18','24']},{n:'net',l:'Net weight (g)',t:'number',req:1},{n:'wastagePct',l:'Wastage %',t:'number',v:5},{n:'makingType',l:'Making type',o:['tola','gram','fixed']},{n:'making',l:'Making amount',t:'number',v:9000},{n:'stone',l:'Stone cost',t:'number',v:0},{n:'cost',l:'Cost price',t:'number'},{n:'qty',l:'Qty',t:'number',v:1}],o=>{o.karat=+o.karat;o.code=nid('AN',inv);o.status='In Stock';o.loc='Showcase';inv.push(o);S.set('inventory',inv);go('stock')})},
+delItem(e){if(!confirm('Delete?'))return;S.set('inventory',S.get('inventory',[]).filter(i=>i.code!=e.dataset.id));go('stock')},
+addCust(){const c=S.get('customers',[]);form('Add Customer',[{n:'name',l:'Name',req:1},{n:'phone',l:'Phone 03XX-XXXXXXX',req:1},{n:'city',l:'City',v:'Karachi'},{n:'tag',l:'Tag',o:['Regular','VIP','Bridal']}],o=>{o.id=nid('C',c);o.balance=0;c.push(o);S.set('customers',c);go('cust')})},
+sale(){const codes=[...document.querySelectorAll('.pi:checked')].map(x=>x.value),inv=S.get('inventory',[]);if(!codes.length)return toast('Item select karein');
+const its=inv.filter(i=>codes.includes(i.code)),sub=its.reduce((a,i)=>a+price(i).total,0),disc=+$('#pd').value||0,ex=+$('#px').value||0,total=Math.max(0,sub-disc-ex),paid=$('#pp').value===''?total:+$('#pp').value,cost=its.reduce((a,i)=>a+i.cost,0);
+const sales=S.get('sales',[]),s={id:nid('INV',sales),date:today(),cust:$('#pc').value,mode:$('#pm').value,total,paid,profit:total-cost,rate:lastRate().r24,items:its.map(i=>({c:i.code,n:i.name,k:i.karat,w:i.net,p:price(i)}))};
+sales.push(s);S.set('sales',sales);its.forEach(i=>i.qty--);S.set('inventory',inv);
+const cs=S.get('customers',[]),c=cs.find(x=>x.name==s.cust);if(c){c.balance=(c.balance||0)+total-paid;S.set('customers',cs)}
+const w=window.open('','_blank');w.document.write('<body style="font:14px Poppins,Arial;max-width:700px;margin:auto"><h2>'+esc(cfg.shop)+'</h2><p>'+esc(cfg.phone)+'<br>Invoice '+s.id+' | '+dd(s.date)+' | Gold rate 24K: Rs. '+fmt(s.rate)+'</p><p>Customer: '+esc(s.cust)+'</p><table border=1 cellpadding=5 style="border-collapse:collapse;width:100%"><tr><th>Item</th><th>Karat</th><th>Wt g</th><th>Gold</th><th>Wastage</th><th>Making</th><th>Stone</th><th>Total</th></tr>'+s.items.map(i=>'<tr><td>'+esc(i.n)+'</td><td>'+i.k+'K</td><td>'+i.w+'</td><td>'+fmt(i.p.base)+'</td><td>'+fmt(i.p.was)+'</td><td>'+fmt(i.p.mk)+'</td><td>'+fmt(i.p.stone)+'</td><td>'+fmt(i.p.total)+'</td></tr>').join('')+'</table><p>Discount: '+fmt(disc)+' | Purana sona: '+fmt(ex)+'<br><b>Total: Rs. '+fmt(total)+'</b> | Paid ('+s.mode+'): '+fmt(paid)+' | Baqaya: '+fmt(total-paid)+'</p><p>Note: Bikri hua maal wapis nahi hoga, exchange policy ke mutabiq.</p><button onclick="print()">Print / PDF</button> <a href="https://wa.me/?text='+encodeURIComponent('Invoice '+s.id+' Total Rs. '+fmt(total))+'">WhatsApp</a></body>');toast('Sale ho gayi');go('dash')},
+addOrder(){const o=S.get('orders',[]);form('New Order',[{n:'cust',l:'Customer',req:1},{n:'desc',l:'Design description',req:1},{n:'est',l:'Est. weight (g)',t:'number'},{n:'advance',l:'Advance Rs.',t:'number'},{n:'due',l:'Delivery date',t:'date',v:today()}],x=>{x.id=nid('O',o);x.status='Received';x.lock=true;o.push(x);S.set('orders',o);go('orders')})},
+ost(e){const o=S.get('orders',[]);o.find(x=>x.id==e.dataset.id).status=e.value;S.set('orders',o);toast('Status update')},
+oWA(e){const x=S.get('orders',[]).find(o=>o.id==e.dataset.id);window.open('https://wa.me/?text='+encodeURIComponent('Assalam o Alaikum '+x.cust+' sahiba, aap ka order #'+x.id+' ka status: '+x.status+'. - '+cfg.shop))},
+posted(){const m=S.get('marketing',{streak:0,done:[]});if(m.done.includes(today()))return toast('Aaj ho chuka');m.done.push(today());m.streak++;S.set('marketing',m);go('mkt')},
+async aiKit(){const it=S.get('inventory',[])[0];$('#aiout').innerHTML='<div class="card">AI likh raha hai...</div>';let t;try{t=await ai('Roman Urdu + English mein Instagram caption, WhatsApp message aur 20 hashtags likho: '+it.name+' '+it.karat+'K '+it.net+'g, shop '+cfg.shop+', tone luxury/bridal.')}catch(e){t='AI nahi chala ('+e.message+'). Neeche template kit istemal karein.'}$('#aiout').innerHTML='<div class="card"><pre>'+esc(t)+'</pre>'+copyBtn(t)+'</div>'},
+poster(e){const it=S.get('inventory',[]).find(i=>i.code==e.dataset.id),c=$('#pc'+it.code),x=c.getContext('2d');c.width=c.height=1080;x.fillStyle='#7a1f2b';x.fillRect(0,0,1080,1080);x.strokeStyle='#e8c46a';x.lineWidth=6;x.strokeRect(40,40,1000,1000);x.fillStyle='#e8c46a';x.textAlign='center';x.font='bold 64px "Playfair Display",serif';x.fillText(cfg.shop,540,150);x.font='bold 100px "Playfair Display",serif';x.fillText(it.name,540,500);x.fillStyle='#fff';x.font='48px Poppins';x.fillText((it.metal=='Gold'?it.karat+'K Gold':'Silver')+' | '+it.net+' g',540,600);x.fillText('Rs. '+fmt(price(it).total),540,700);x.fillStyle='#25a244';x.fillRect(0,940,1080,140);x.fillStyle='#fff';x.fillText('Order on WhatsApp: '+cfg.phone,540,1025);const a=document.createElement('a');a.download=it.code+'.png';a.href=c.toDataURL();a.click()},
+saveSet(){cfg={...cfg,shop:$('#sn').value,phone:$('#sp').value,lang:$('#sl').value,role:$('#sro').value,key:$('#sk').value,url:$('#su').value};const p=$('#pin').value;if(p)crypto.subtle.digest('SHA-256',new TextEncoder().encode(p)).then(h=>{cfg.pin=[...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');S.set('settings',cfg)});S.set('settings',cfg);toast('Saved');nav();go('set')},
+theme(){cfg.dark=!cfg.dark;document.body.classList.toggle('dark',cfg.dark);S.set('settings',cfg)},
+export(){const o={};Object.keys(localStorage).filter(k=>k.startsWith('jwl_')).forEach(k=>o[k]=localStorage[k]);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o)],{type:'application/json'}));a.download='jewellery-backup-'+today()+'.json';a.click();cfg.lastBackup=today();S.set('settings',cfg)},
+reset(){if(!confirm('Sab data delete karke demo data load hoga?'))return;Object.keys(localStorage).filter(k=>k.startsWith('jwl_')).forEach(k=>localStorage.removeItem(k));location.reload()}};
+/* ---- Router ---- */
+let cur='dash';const tabs=['dash','rates','stock','cust','pos','orders','mkt','set'];
+function nav(){$('#nav').innerHTML='<b>'+esc(cfg.shop)+'</b>'+tabs.map(k=>'<a data-go="'+k+'" class="'+(k==cur?'on':'')+'">'+t(k)+'</a>').join('');document.documentElement.dir=cfg.lang=='ur'?'rtl':'ltr'}
+function go(k){cur=k;nav();$('#main').innerHTML=V[k]();V[k].after&&V[k].after()}
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)return go(g.dataset.go);const a=e.target.closest('[data-act]');if(a&&a.tagName!='SELECT')return A[a.dataset.act](a);const c=e.target.closest('[data-copy]');if(c){navigator.clipboard.writeText(c.dataset.copy).then(()=>toast('Copied!'))}});
+document.addEventListener('change',e=>{if(e.target.dataset.act=='ost')A.ost(e.target);if(e.target.id=='imp'){const f=e.target.files[0],r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);Object.keys(o).forEach(k=>k.startsWith('jwl_')&&localStorage.setItem(k,o[k]));location.reload()}catch(x){toast('Invalid backup file')}};r.readAsText(f)}});
+document.addEventListener('input',e=>{if(e.target.id=='cv')$('#cvo').textContent=(e.target.value*TOLA).toFixed(2)+' g = '+(e.target.value*12).toFixed(1)+' masha = '+(e.target.value*96).toFixed(0)+' ratti'});
+document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key=='k'){e.preventDefault();go('stock');setTimeout(()=>$('#q').focus(),50)}});
+function start(){document.body.classList.toggle('dark',!!cfg.dark);go('dash');if(cfg.lastBackup&&(Date.now()-new Date(cfg.lastBackup))>7*864e5)toast('Hafte se backup nahi liya!')}
+if(!cfg){cfg={shop:'Al-Noor Jewellers',phone:'0300-1234567',lang:'ru',role:'Owner'};S.set('settings',cfg);seed()}
+if(cfg.pin){document.body.innerHTML+='<div id="lk" style="position:fixed;inset:0;background:#0f4d3a;z-index:99;display:flex;align-items:center;justify-content:center"><div class="card">PIN: <input id="lp" type="password"> <button id="lb">Open</button></div></div>';$('#lb').onclick=async()=>{const h=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode($('#lp').value)))].map(b=>b.toString(16).padStart(2,'0')).join('');h==cfg.pin?($('#lk').remove(),start()):toast('Ghalat PIN')}}else start();
+})();
+</script></body></html>
